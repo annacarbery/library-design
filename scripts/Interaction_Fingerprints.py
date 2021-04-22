@@ -1,5 +1,5 @@
 import os
-from oddt.fingerprints import InteractionFingerprint
+from oddt.fingerprints_new import InteractionFingerprint
 import oddt
 import sys 
 from pymol import cmd
@@ -61,22 +61,28 @@ def get_IFP_vectors(input_data):
     ifrags = []
     ivecs = []
 
-    for ligand in os.listdir(input_data):
+    for ligand in sorted(os.listdir(input_data)):
 
         try:
+            if os.path.exists(os.path.join(input_data, ligand, 'refine.pdb')) and 'LIG' in open(os.path.join(input_data, ligand, 'refine.pdb'), 'r').read():
+                print(ligand)
             
-            separate_files(os.path.join(input_data, ligand, 'refine.pdb'))
+                separate_files(os.path.join(input_data, ligand, 'refine.pdb'))
 
-            IFP = get_IFP()
-        
-            if list(IFP).count(0) < len(IFP):
-                ismiles.append(xtal_smiles[ligand][0])
-                ifrags.append(ligand)
-                ivecs.append(IFP)
+                IFP = get_IFP()
+
+            
+                if list(IFP).count(0) < len(IFP):
+                    ismiles.append(xtal_smiles[ligand])
+                    ifrags.append(ligand)
+                    ivecs.append(IFP)
+                
 
         
         except:
+            # raise
             pass
+            # print(sys.exc_info()[1])
     
     return ismiles, ifrags, ivecs
 
@@ -127,13 +133,18 @@ def get_smiles_bits(vecs, smiles):
     
     return smiles_bits
 
+parser = argparse.ArgumentParser()
+parser.add_argument('-input', help='model_building directory full path')
+parser.add_argument('-smiles', help='csv with format Mpro-x0001,SMILES_STRING')
+args = vars(parser.parse_args())
 
-INPUT_DATA = '/dls/labxchem/data/2020/sw27230-1/processing/analysis/model_building/'
+INPUT_DATA = args['input']
 
-smiles_strings = open('test_file.csv', 'r').readlines()
+smiles_strings = open(args['smiles'], 'r').readlines()
 xtal_smiles = {}
-for line in smiles_strings[1:]:
-    xtal_smiles[line.split(',')[0]] = line.split(',')[1]
+for line in smiles_strings:
+    xtal_smiles[line.split('.pdb')[0]] = line.split(',')[1].strip()
+
 
 ifrags, ivecs, ismiles = get_IFP_vectors(INPUT_DATA)
 vecs, frags, smiles, wrong = get_uniform_IFPs(ifrags, ivecs, ismiles)
@@ -144,5 +155,4 @@ print('vectors of wrong length:', wrong)
 smiles_bits = get_smiles_bits(vecs, smiles)
 
 print('structures:', len(vecs), ', unique smiles:', len(smiles_bits))
-target_data[target] = smiles_bits
-json.dump(target_data, open('data/datafiles/smiles_bits.json', 'w'))
+json.dump(smiles_bits, open('Mpro_bits.json', 'w'))
