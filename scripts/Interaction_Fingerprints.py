@@ -1,5 +1,5 @@
 import os
-from oddt.fingerprints_new import InteractionFingerprint, tanimoto
+from oddt.fingerprints import InteractionFingerprint
 import oddt
 import sys 
 from pymol import cmd
@@ -18,17 +18,17 @@ def separate_files(filepath):
     cmd.reinitialize()
     cmd.load(filepath, 'complex')
     cmd.select('lig', 'resn LIG')
-    cmd.save('data/tmp/lig.pdb', 'lig')
+    cmd.save('lig.pdb', 'lig')
     cmd.extract('hets', 'complex and HETATM')
-    cmd.save('data/tmp/prot.pdb', 'complex')
+    cmd.save('prot.pdb', 'complex')
 
 
 def get_IFP():
 
     # uses the previously split protein and ligand files and caculates binary protein-ligand interaction fingerprint
 
-    lig = next(oddt.toolkit.readfile('pdb', 'data/tmp/lig.pdb'))
-    prot = next(oddt.toolkit.readfile('pdb', 'data/tmp/prot.pdb'))
+    lig = next(oddt.toolkit.readfile('pdb', 'lig.pdb'))
+    prot = next(oddt.toolkit.readfile('pdb', 'prot.pdb'))
 
     prot.protein = True
 
@@ -53,7 +53,7 @@ def get_DSiP_smiles():
     return DSiP_smiles
 
 
-def get_IFP_vectors(target):
+def get_IFP_vectors(input_data):
 
     # all IFPs for a particular target are calculated
 
@@ -61,21 +61,18 @@ def get_IFP_vectors(target):
     ifrags = []
     ivecs = []
 
-    for ligand in os.listdir(f'{DATA_DIR}/{target}'):
+    for ligand in os.listdir(input_data):
 
         try:
-            if len(xtal_smiles[ligand]) > 1:
-                xtal_smiles[ligand] = [min(xtal_smiles[ligand])]
-            if Chem.MolToSmiles(Chem.MolFromSmiles(xtal_smiles[ligand][0])) in DSiP_smiles:
-
-                separate_files(f'{DATA_DIR}/{target}/{ligand}')
-
-                IFP = get_IFP()
             
-                if list(IFP).count(0) < len(IFP):
-                    ismiles.append(xtal_smiles[ligand][0])
-                    ifrags.append(ligand)
-                    ivecs.append(IFP)
+            separate_files(os.path.join(input_data, ligand, 'refine.pdb'))
+
+            IFP = get_IFP()
+        
+            if list(IFP).count(0) < len(IFP):
+                ismiles.append(xtal_smiles[ligand][0])
+                ifrags.append(ligand)
+                ivecs.append(IFP)
 
         
         except:
@@ -131,34 +128,21 @@ def get_smiles_bits(vecs, smiles):
     return smiles_bits
 
 
-DATA_DIR = '/dls/science/users/tyt15771/DPhil/Lib_activity/data'
+INPUT_DATA = '/dls/labxchem/data/2020/sw27230-1/processing/analysis/model_building/'
 
-target_data = {}
-DSiP_smiles = get_DSiP_smiles()
-print('DSiP total compounds:', len(set(DSiP_smiles)))
+smiles_strings = open('test_file.csv', 'r').readlines()
+xtal_smiles = {}
+for line in smiles_strings[1:]:
+    xtal_smiles[line.split(',')[0]] = line.split(',')[1]
 
-xtal_smiles = json.load(open('data/datafiles/xtal_smiles.json', 'r'))
+ifrags, ivecs, ismiles = get_IFP_vectors(INPUT_DATA)
+vecs, frags, smiles, wrong = get_uniform_IFPs(ifrags, ivecs, ismiles)
 
+print('IFPs:', len(vecs))
+print('vectors of wrong length:', wrong)
 
-for target in os.listdir(DATA_DIR):
-# for target in ['70X']:
+smiles_bits = get_smiles_bits(vecs, smiles)
 
-    try:
-        print(target)
-
-        ifrags, ivecs, ismiles = get_IFP_vectors(target)
-        vecs, frags, smiles, wrong = get_uniform_IFPs(ifrags, ivecs, ismiles)
-
-        print('IFPs:', len(vecs))
-        print('vectors of wrong length:', wrong)
-
-        smiles_bits = get_smiles_bits(vecs, smiles)
-
-        print('structures:', len(vecs), ', unique smiles:', len(smiles_bits))
-        target_data[target] = smiles_bits
-        json.dump(target_data, open('data/datafiles/smiles_bits.json', 'w'))
-    
-    except:
-        print(target, 'error')
-        print(sys.exc_info()[1])
-
+print('structures:', len(vecs), ', unique smiles:', len(smiles_bits))
+target_data[target] = smiles_bits
+json.dump(target_data, open('data/datafiles/smiles_bits.json', 'w'))
