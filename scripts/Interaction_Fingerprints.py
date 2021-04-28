@@ -1,12 +1,12 @@
 import os
-from oddt.fingerprints_new import InteractionFingerprint
+import numpy
+from oddt.fingerprints import InteractionFingerprint
 import oddt
+from rdkit import Chem
+from rdkit.Chem import DataStructs, AllChem
 import sys 
 from pymol import cmd
 import statistics
-from rdkit import Chem
-from rdkit.Chem import AllChem
-from rdkit.Chem import DataStructs, SaltRemover
 import json
 import argparse
 
@@ -37,22 +37,6 @@ def get_IFP():
     return IFP
 
 
-def get_DSiP_smiles():
-
-    # using the sdf files provided by Enamine, the molecules are cleaned of salts and converted into SMILES strings
-
-    DSiP = []
-
-    for filename in os.listdir('data/DSiP'):
-        DSiP += list(Chem.SDMolSupplier(f'data/DSiP/{filename}'))
-
-    remover = SaltRemover.SaltRemover()
-    DSiP = [remover.StripMol(mol) for mol in DSiP]
-    DSiP_smiles = [Chem.MolToSmiles(i) for i in DSiP]
-
-    return DSiP_smiles
-
-
 def get_IFP_vectors(input_data):
 
     # all IFPs for a particular target are calculated
@@ -64,26 +48,20 @@ def get_IFP_vectors(input_data):
     for ligand in sorted(os.listdir(input_data)):
 
         try:
-            if os.path.exists(os.path.join(input_data, ligand, 'refine.pdb')) and 'LIG' in open(os.path.join(input_data, ligand, 'refine.pdb'), 'r').read():
-                print(ligand)
+            if os.path.exists(os.path.join(input_data, ligand, 'refine.pdb')) and 'LIG' in open(os.path.join(input_data, ligand, 'refine.pdb'), 'r').read() and ligand in xtal_smiles:
             
                 separate_files(os.path.join(input_data, ligand, 'refine.pdb'))
 
                 IFP = get_IFP()
 
-            
                 if list(IFP).count(0) < len(IFP):
                     ismiles.append(xtal_smiles[ligand])
                     ifrags.append(ligand)
                     ivecs.append(IFP)
                 
-
-        
         except:
-            # raise
-            pass
-            # print(sys.exc_info()[1])
-    
+            raise
+
     return ismiles, ifrags, ivecs
 
 
@@ -133,21 +111,27 @@ def get_smiles_bits(vecs, smiles):
     
     return smiles_bits
 
+
 parser = argparse.ArgumentParser()
+parser.add_argument('-target', help='target acronym')
 parser.add_argument('-input', help='model_building directory full path')
 parser.add_argument('-smiles', help='csv with format Mpro-x0001,SMILES_STRING')
+parser.add_argument('-alias', help='anonymised name')
 args = vars(parser.parse_args())
 
 INPUT_DATA = args['input']
 
 smiles_strings = open(args['smiles'], 'r').readlines()
 xtal_smiles = {}
-for line in smiles_strings:
-    xtal_smiles[line.split('.pdb')[0]] = line.split(',')[1].strip()
-
+for line in smiles_strings[1:]:
+    xtal_smiles[args['target']+'-'+line.split(',')[0]] = line.split(',')[2].strip()
+    
+for i in xtal_smiles:
+    print(i, xtal_smiles[i])
 
 ifrags, ivecs, ismiles = get_IFP_vectors(INPUT_DATA)
 vecs, frags, smiles, wrong = get_uniform_IFPs(ifrags, ivecs, ismiles)
+
 
 print('IFPs:', len(vecs))
 print('vectors of wrong length:', wrong)
@@ -155,4 +139,4 @@ print('vectors of wrong length:', wrong)
 smiles_bits = get_smiles_bits(vecs, smiles)
 
 print('structures:', len(vecs), ', unique smiles:', len(smiles_bits))
-json.dump(smiles_bits, open('Mpro_bits.json', 'w'))
+json.dump(smiles_bits, open(f'{args["alias"]}_IFP.json', 'w'))

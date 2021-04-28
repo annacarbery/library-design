@@ -16,7 +16,7 @@ def get_reduced_smiles_bits(smiles_bits, test_target):
     return reduced
 
 
-def get_fraction(comps, smiles_bits, target):
+def get_fraction(comps, smiles_bits, target, total_information):
     target_fraction = [0]
     current_info = []
 
@@ -65,13 +65,13 @@ for test_target in smiles_bits:
         total_information += smiles_bits[test_target][c]
     total_information = len(set(total_information))
 
-    target_fraction = get_fraction(comps, smiles_bits, test_target)
+    target_fraction = get_fraction(comps, smiles_bits, test_target, total_information)
     fractions.append(target_fraction)
 
     add_for_DSiP = 1007 - len(all_smiles)
     all_smiles += ['C'] * add_for_DSiP
     random.shuffle(all_smiles)
-    random_fraction = get_fraction(all_smiles[:250], smiles_bits, test_target)
+    random_fraction = get_fraction(all_smiles[:250], smiles_bits, test_target, total_information)
     random_fractions.append(random_fraction)
 
 
