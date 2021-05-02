@@ -3,10 +3,15 @@ import json
 from rank_compounds import get_next_best_compound, get_all_smiles, rank
 import matplotlib.pyplot as plt
 import random
+from rdkit import Chem
+from rdkit.Chem import AllChem
+from rdkit.Chem import DataStructs, SaltRemover
 
 
 def get_reduced_smiles_bits(smiles_bits, test_target):
     
+    # get smiles bits without the target being tested 
+
     reduced = {}
 
     for t in smiles_bits:
@@ -17,6 +22,9 @@ def get_reduced_smiles_bits(smiles_bits, test_target):
 
 
 def get_fraction(comps, smiles_bits, target, total_information):
+
+    # get the fraction of information recovered using a subset of DSiP compounds
+
     target_fraction = [0]
     current_info = []
 
@@ -34,14 +42,23 @@ def get_fraction(comps, smiles_bits, target, total_information):
 
 
 smiles_bits = json.load(open('data/datafiles/smiles_bits.json', 'r'))
+frequent_comps = json.load(open('data/datafiles/frequently_tested_compounds.json', 'r'))
+target_tests = json.load(open('data/datafiles/target_test_numbers.json', 'r'))
+lib_size = 150
 
 smol = []
+print(target_tests)
 for t in smiles_bits:
-    if len(smiles_bits[t]) < 10:
+    if t in target_tests:
+        print(t, target_tests[t])
+    if t in target_tests and target_tests[t] < 250:
+        smol.append(t)
+    elif t not in target_tests:
         smol.append(t)
 
 for t in smol:
     del smiles_bits[t]
+
 # DSiP_smiles = all_smiles + ['C'] * 450
 # random.shuffle(DSiP_smiles)
 
@@ -52,11 +69,13 @@ fractions = []
 random_fractions = []
 comps_lists = []
 
+mean_random_fractions_250 = []
+print(len(smiles_bits))
 for test_target in smiles_bits:
 
     smiles_bits_reduced = get_reduced_smiles_bits(smiles_bits, test_target)
-    all_smiles = get_all_smiles(smiles_bits_reduced)
-    comps, x = rank(smiles_bits_reduced, all_smiles, 250)
+    all_smiles = [i for i in get_all_smiles(smiles_bits_reduced) if i in frequent_comps]
+    comps, x = rank(smiles_bits_reduced, all_smiles, lib_size)
     comps_lists += comps
 
 
@@ -68,11 +87,20 @@ for test_target in smiles_bits:
     target_fraction = get_fraction(comps, smiles_bits, test_target, total_information)
     fractions.append(target_fraction)
 
-    add_for_DSiP = 1007 - len(all_smiles)
+    add_for_DSiP = 459 - len(all_smiles)
     all_smiles += ['C'] * add_for_DSiP
     random.shuffle(all_smiles)
-    random_fraction = get_fraction(all_smiles[:250], smiles_bits, test_target, total_information)
+
+    random_fraction = get_fraction(all_smiles[:lib_size], smiles_bits, test_target, total_information)
     random_fractions.append(random_fraction)
+
+    random_fractions_250 = []
+    for i in range(1000):
+        random.shuffle(all_smiles)
+        random_fractions_250.append(get_fraction(all_smiles[:lib_size], smiles_bits, test_target, total_information)[-1])
+    mean_random_fractions_250.append(sum(random_fractions_250)/1000)
+
+
 
 
     print(test_target, len(comps), len(smiles_bits[test_target]), target_fraction[-1])
@@ -112,24 +140,26 @@ counts = [comps_lists.count(i) for i in all_smiles]
 plt.close()
 plt.figure(figsize=(8, 5))
 plt.bar(list(set(counts)), [counts.count(i) for i in set(counts)])
-plt.xlabel('number of times fragments in top 250')
+plt.xlabel(f'number of times fragments in top {lib_size}')
 plt.tight_layout()
 plt.savefig('figures/compound_counts.png')
 
-
+max_possible_improvement = []
 improvement = []
 for i in range(len(fractions)):
     try:
-        improvement.append((fractions[i][250]-random_fractions[i][250])/random_fractions[i][250])
+        improvement.append((fractions[i][lib_size]-mean_random_fractions_250[i])/mean_random_fractions_250[i])
+        max_possible_improvement.append((1-mean_random_fractions_250[i])/mean_random_fractions_250[i])
     except:
         improvement.append(0)
 
 
 plt.close()
-plt.figure(figsize=(8, 5))
+plt.figure(figsize=(8, 7))
+# plt.barh([t for t in smiles_bits], [improvement[i]/max_possible_improvement[i] for i in range(len(improvement))])
 plt.barh([t for t in smiles_bits], improvement)
-plt.xlabel('factor of information improvement in library size 250')
+plt.xlabel(f'factor of information improvement in DSiP-diverse {lib_size} vs average of 1,000 random runs')
 plt.ylabel('target')
-plt.xlim(-2, 10)
+# plt.xlim(-2, 7)
 plt.tight_layout()
 plt.savefig('figures/improvement_by_target.png')
