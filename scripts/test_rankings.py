@@ -1,6 +1,6 @@
 import os
 import json
-from rank_compounds import get_next_best_compound, get_all_smiles, rank
+from rank_compounds import get_next_best_compound, get_all_smiles, rank, get_DSiP_smiles
 import matplotlib.pyplot as plt
 import random
 from rdkit import Chem
@@ -40,14 +40,15 @@ def get_fraction(comps, smiles_bits, target, total_information):
     return target_fraction
 
 
-def ignore_targets(smiles_bits, target_tests, remove_less_than):
+def ignore_targets(smiles_bits, frequent_comps, target_screens, remove_less_than):
+
+    # returns a dictionary of IFP bits for each compound in each target that have more than a threshold amount of frequent compounds tested
 
     smol = []
     for t in smiles_bits:
-
-        if t in target_tests and target_tests[t] < remove_less_than:
+        if t in target_screens and len([i for i in target_screens[t] if i in frequent_comps]) < remove_less_than:
             smol.append(t)
-        elif t not in target_tests:
+        elif t not in target_screens:
             smol.append(t)
 
     for t in smol:
@@ -58,14 +59,20 @@ def ignore_targets(smiles_bits, target_tests, remove_less_than):
 
 def get_total_information(smiles_bits, target):
 
+    # returns number of unique IFP bits for target
+
     total_information = []
     for c in smiles_bits[target]:
         total_information += smiles_bits[target][c]
+
     total_information = len(set(total_information))
+
     return total_information
 
 
 def multiple_random_runs(all_smiles, smiles_bits, test_target, total_information, lib_size=150, num_runs=1000):
+
+    # generates results for screens on given target using random libraries
 
     random_fractions_target = [0] * lib_size
     for i in range(num_runs):
@@ -82,6 +89,8 @@ def multiple_random_runs(all_smiles, smiles_bits, test_target, total_information
 
 def plot_target_fraction(target, fraction):
 
+    # plots information recovery for each target
+
     plt.plot(range(len(fraction)), fraction, label=target)
     plt.xlabel('library size')
     plt.ylabel('information recovered')
@@ -91,6 +100,8 @@ def plot_target_fraction(target, fraction):
 
 
 def target_improvement(target_fraction, random_fractions_target):
+
+    # calculates improvement in information recovered between ranked library and random library (mean of many runs)
 
     assert len(target_fraction) == len(random_fractions_target)
 
@@ -104,6 +115,8 @@ def target_improvement(target_fraction, random_fractions_target):
 
 def mean_across_targets(fraction):
 
+    # calculates the mean information recovered across all targets for a particular library type
+
     mean_fractions = []
     fraction_lengths = [len(i) for i in fractions]
     for i in range(min(fraction_lengths)):
@@ -112,13 +125,16 @@ def mean_across_targets(fraction):
     return mean_fractions
 
 
-smiles_bits = json.load(open('data/datafiles/smiles_bits.json', 'r'))
-frequent_comps = json.load(open('data/datafiles/frequently_tested_compounds.json', 'r'))
-target_tests = json.load(open('data/datafiles/target_test_numbers.json', 'r'))
-lib_size = 150
 
-smiles_bits = ignore_targets(smiles_bits, target_tests, 250)
+smiles_bits = json.load(open('data/datafiles/smiles_bits.json', 'r')) # load in dictionary of targets with IFP bits attributed to each compound
+frequent_comps = json.load(open('data/datafiles/frequently_tested_compounds.json', 'r')) # load in list of compounds that have been tested on more than 15 of our targets
+# target_tests = json.load(open('data/datafiles/target_test_numbers.json', 'r')) # load in dictionary showing how many compounds were tested on which targets
+lib_size = 200 # library size we are using to compare ranked and random libraries
+target_screens = json.load(open('data/datafiles/target_full_screens.json', 'r')) # load in dictionary showing which compounds were tested on which targets
 
+DSiP_smiles = get_DSiP_smiles()
+smiles_bits = ignore_targets(smiles_bits, frequent_comps, target_screens, 500) # only take targets that have had more than 250 of our frequent compounds tested
+print(len(set(frequent_comps)))
 plt.figure(figsize=(12, 5))
 plt.subplot(121)
 
@@ -128,10 +144,18 @@ comps_lists = []
 improvement = []
 
 for test_target in smiles_bits:
+    # print(test_target)
+    # print(target_tests[test_target])
+    # print('frequently tested compounds', len(set([i for i in target_screens[test_target] if i in frequent_comps])))
+    # print('total DSiP compounds tested', len(set(target_screens[test_target])))
+
+    # if len(set([i for i in target_screens[test_target] if i in frequent_comps])) > 500:
+
 
     # get all results except target being tested
     smiles_bits_reduced = get_reduced_smiles_bits(smiles_bits, test_target)
-    all_smiles = [i for i in get_all_smiles(smiles_bits_reduced) if i in frequent_comps]
+    all_smiles = [i for i in get_all_smiles(smiles_bits_reduced) if Chem.MolToSmiles(Chem.MolFromSmiles(i)) in frequent_comps]
+    print('previously bound compounds', len(all_smiles))
 
     # rank compounds based on past results
     comps, x = rank(smiles_bits_reduced, all_smiles, lib_size)
@@ -146,11 +170,12 @@ for test_target in smiles_bits:
 
     # add in dummy compounds for those we have never seen bind and shuffle new (larger) library
     add_for_DSiP = len(frequent_comps) - len(all_smiles)
+
     all_smiles += ['C'] * add_for_DSiP
     random.shuffle(all_smiles)
 
     # get list of fraction of information recovered at each library size (random library)
-    random_fractions_target = multiple_random_runs(all_smiles, smiles_bits, test_target, total_information, num_runs=1000)
+    random_fractions_target = multiple_random_runs(all_smiles, smiles_bits, test_target, total_information, lib_size=lib_size, num_runs=1000)
     random_fractions.append(random_fractions_target)
 
     # print and save improvement in information recovered from random and ranked sub-libaries
@@ -163,6 +188,7 @@ for test_target in smiles_bits:
 
 mean_fractions = mean_across_targets(fractions)
 mean_random_fractions = mean_across_targets(random_fractions)
+
 
 plt.subplot(122)
 plt.plot(range(len(mean_fractions)), mean_fractions, label='using ranked compounds')

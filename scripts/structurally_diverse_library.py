@@ -4,7 +4,7 @@ from rdkit.Chem import DataStructs, SaltRemover, rdMolDescriptors, MACCSkeys
 from rdkit import SimDivFilters
 import numpy as np
 import os
-from rank_compounds import get_all_smiles
+from rank_compounds import get_all_smiles, get_DSiP_smiles
 import json
 
 
@@ -17,24 +17,9 @@ def dmat_sim(fps,ntopick):
     return ids
 
 
-def get_DSiP_smiles():
 
-    # using the sdf files provided by Enamine, the molecules are cleaned of salts and converted into SMILES strings
-
-    DSiP = []
-
-    for filename in os.listdir('data/DSiP'):
-        DSiP += list(Chem.SDMolSupplier(f'data/DSiP/{filename}'))
-
-    remover = SaltRemover.SaltRemover()
-    DSiP = [remover.StripMol(mol) for mol in DSiP]
-    DSiP_smiles = [Chem.MolToSmiles(i) for i in DSiP]
-    DSiP_smiles = list(set(DSiP_smiles))
-
-    return DSiP_smiles
-
-# smiles_bits = json.load(open('data/datafiles/smiles_bits.json', 'r'))
-# all_smiles = get_all_smiles(smiles_bits)
+smiles_bits = json.load(open('data/datafiles/smiles_bits.json', 'r'))
+all_smiles = get_all_smiles(smiles_bits)
 DSiP_smiles = json.load(open('data/datafiles/frequently_tested_compounds.json', 'r'))
 ms = [Chem.MolFromSmiles(i) for i in DSiP_smiles]
 # fps = [rdMolDescriptors.GetMorganFingerprintAsBitVect(m,2) for m in ms]
