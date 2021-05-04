@@ -24,6 +24,7 @@ def get_reduced_smiles_bits(smiles_bits, test_target):
 def get_fraction(comps, smiles_bits, target, total_information):
 
     # get the fraction of information recovered using a subset of DSiP compounds
+    # returns list of fractional information
 
     target_fraction = [0]
     current_info = []
@@ -39,6 +40,76 @@ def get_fraction(comps, smiles_bits, target, total_information):
     return target_fraction
 
 
+def ignore_targets(smiles_bits, target_tests, remove_less_than):
+
+    smol = []
+    for t in smiles_bits:
+
+        if t in target_tests and target_tests[t] < remove_less_than:
+            smol.append(t)
+        elif t not in target_tests:
+            smol.append(t)
+
+    for t in smol:
+        del smiles_bits[t]
+
+    return smiles_bits
+
+
+def get_total_information(smiles_bits, target):
+
+    total_information = []
+    for c in smiles_bits[target]:
+        total_information += smiles_bits[target][c]
+    total_information = len(set(total_information))
+    return total_information
+
+
+def multiple_random_runs(all_smiles, smiles_bits, test_target, total_information, lib_size=150, num_runs=1000):
+
+    random_fractions_target = [0] * lib_size
+    for i in range(num_runs):
+        random.shuffle(all_smiles)
+        random_run = get_fraction(all_smiles[:lib_size], smiles_bits, test_target, total_information)
+        for l in range(lib_size):
+            random_fractions_target[l] += random_run[l]
+    random_fractions_target = [f/num_runs for f in random_fractions_target]
+    random_fractions_target += [0]
+    random_fractions_target = sorted(random_fractions_target)
+
+    return random_fractions_target
+
+
+def plot_target_fraction(target, fraction):
+
+    plt.plot(range(len(fraction)), fraction, label=target)
+    plt.xlabel('library size')
+    plt.ylabel('information recovered')
+    plt.ylim(0,1)
+    plt.tight_layout()
+    plt.savefig('figures/fraction_test.png')
+
+
+def target_improvement(target_fraction, random_fractions_target):
+
+    assert len(target_fraction) == len(random_fractions_target)
+
+    if random_fractions_target[-1] > 0:
+        imp = (target_fraction[-1]-random_fractions_target[-1])/random_fractions_target[-1]
+    else:
+        imp = 0
+    
+    return imp
+
+
+def mean_across_targets(fraction):
+
+    mean_fractions = []
+    fraction_lengths = [len(i) for i in fractions]
+    for i in range(min(fraction_lengths)):
+        mean_fractions.append(sum([x[i] for x in fractions])/len(fractions))
+    
+    return mean_fractions
 
 
 smiles_bits = json.load(open('data/datafiles/smiles_bits.json', 'r'))
@@ -46,21 +117,7 @@ frequent_comps = json.load(open('data/datafiles/frequently_tested_compounds.json
 target_tests = json.load(open('data/datafiles/target_test_numbers.json', 'r'))
 lib_size = 150
 
-smol = []
-print(target_tests)
-for t in smiles_bits:
-    if t in target_tests:
-        print(t, target_tests[t])
-    if t in target_tests and target_tests[t] < 250:
-        smol.append(t)
-    elif t not in target_tests:
-        smol.append(t)
-
-for t in smol:
-    del smiles_bits[t]
-
-# DSiP_smiles = all_smiles + ['C'] * 450
-# random.shuffle(DSiP_smiles)
+smiles_bits = ignore_targets(smiles_bits, target_tests, 250)
 
 plt.figure(figsize=(12, 5))
 plt.subplot(121)
@@ -68,61 +125,44 @@ plt.subplot(121)
 fractions = []
 random_fractions = []
 comps_lists = []
+improvement = []
 
-mean_random_fractions_250 = []
-print(len(smiles_bits))
 for test_target in smiles_bits:
 
+    # get all results except target being tested
     smiles_bits_reduced = get_reduced_smiles_bits(smiles_bits, test_target)
     all_smiles = [i for i in get_all_smiles(smiles_bits_reduced) if i in frequent_comps]
+
+    # rank compounds based on past results
     comps, x = rank(smiles_bits_reduced, all_smiles, lib_size)
     comps_lists += comps
 
+    # calculate total information from test target from full library
+    total_information = get_total_information(smiles_bits, test_target)
 
-    total_information = []
-    for c in smiles_bits[test_target]:
-        total_information += smiles_bits[test_target][c]
-    total_information = len(set(total_information))
-
+    # get list of fraction of information recovered at each library size (ranked library)
     target_fraction = get_fraction(comps, smiles_bits, test_target, total_information)
     fractions.append(target_fraction)
 
-    add_for_DSiP = 459 - len(all_smiles)
+    # add in dummy compounds for those we have never seen bind and shuffle new (larger) library
+    add_for_DSiP = len(frequent_comps) - len(all_smiles)
     all_smiles += ['C'] * add_for_DSiP
     random.shuffle(all_smiles)
 
-    random_fraction = get_fraction(all_smiles[:lib_size], smiles_bits, test_target, total_information)
-    random_fractions.append(random_fraction)
+    # get list of fraction of information recovered at each library size (random library)
+    random_fractions_target = multiple_random_runs(all_smiles, smiles_bits, test_target, total_information, num_runs=1000)
+    random_fractions.append(random_fractions_target)
 
-    random_fractions_250 = []
-    for i in range(1000):
-        random.shuffle(all_smiles)
-        random_fractions_250.append(get_fraction(all_smiles[:lib_size], smiles_bits, test_target, total_information)[-1])
-    mean_random_fractions_250.append(sum(random_fractions_250)/1000)
+    # print and save improvement in information recovered from random and ranked sub-libaries
+    print(test_target, len(comps), len(smiles_bits[test_target]), target_fraction[-1], random_fractions_target[-1])
+    improvement.append(target_improvement(target_fraction, random_fractions_target))
+
+    # plot information recovery as library size increases 
+    plot_target_fraction(test_target, target_fraction)
 
 
-
-
-    print(test_target, len(comps), len(smiles_bits[test_target]), target_fraction[-1])
-    plt.plot(range(len(target_fraction)), target_fraction, label=test_target)
-
-    plt.xlabel('library size')
-    plt.ylabel('information recovered')
-    plt.ylim(0,1)
-    plt.tight_layout()
-    plt.savefig('figures/fraction_test.png')
-    
-
-mean_fractions = []
-fraction_lengths = [len(i) for i in fractions]
-for i in range(min(fraction_lengths)):
-    mean_fractions.append(sum([x[i] for x in fractions])/len(fractions))
-
-mean_random_fractions = []
-random_fraction_lengths = [len(i) for i in random_fractions]
-for i in range(min(random_fraction_lengths)):
-    mean_random_fractions.append(sum([x[i] for x in random_fractions])/len(random_fractions))
-
+mean_fractions = mean_across_targets(fractions)
+mean_random_fractions = mean_across_targets(random_fractions)
 
 plt.subplot(122)
 plt.plot(range(len(mean_fractions)), mean_fractions, label='using ranked compounds')
@@ -144,22 +184,11 @@ plt.xlabel(f'number of times fragments in top {lib_size}')
 plt.tight_layout()
 plt.savefig('figures/compound_counts.png')
 
-max_possible_improvement = []
-improvement = []
-for i in range(len(fractions)):
-    try:
-        improvement.append((fractions[i][lib_size]-mean_random_fractions_250[i])/mean_random_fractions_250[i])
-        max_possible_improvement.append((1-mean_random_fractions_250[i])/mean_random_fractions_250[i])
-    except:
-        improvement.append(0)
-
 
 plt.close()
 plt.figure(figsize=(8, 7))
-# plt.barh([t for t in smiles_bits], [improvement[i]/max_possible_improvement[i] for i in range(len(improvement))])
 plt.barh([t for t in smiles_bits], improvement)
 plt.xlabel(f'factor of information improvement in DSiP-diverse {lib_size} vs average of 1,000 random runs')
 plt.ylabel('target')
-# plt.xlim(-2, 7)
 plt.tight_layout()
 plt.savefig('figures/improvement_by_target.png')

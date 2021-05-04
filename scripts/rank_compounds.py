@@ -122,41 +122,41 @@ def rank(smiles_bits, all_smiles, length):
     return comps, fraction
 
 
+if __name__ == '__main__':
+    smiles_bits = json.load(open('data/datafiles/smiles_bits.json', 'r'))
+    all_smiles = get_all_smiles(smiles_bits)
+    DSiP_smiles = all_smiles + ['C'] * 450
+    random.shuffle(DSiP_smiles)
 
-smiles_bits = json.load(open('data/datafiles/smiles_bits.json', 'r'))
-all_smiles = get_all_smiles(smiles_bits)
-DSiP_smiles = all_smiles + ['C'] * 450
-random.shuffle(DSiP_smiles)
+    comps, fraction = rank(smiles_bits, all_smiles, len(DSiP_smiles))
 
-comps, fraction = rank(smiles_bits, all_smiles, len(DSiP_smiles))
+    json.dump(comps, open('data/outputs/ranked_compounds.json', 'w'))
 
-json.dump(comps, open('data/outputs/ranked_compounds.json', 'w'))
+    random_full_fraction = get_random_fraction(DSiP_smiles, smiles_bits)
+    random_smaller_fraction = get_random_fraction(all_smiles, smiles_bits)
+    does_order_matter = get_random_fraction(comps, smiles_bits)
 
-random_full_fraction = get_random_fraction(DSiP_smiles, smiles_bits)
-random_smaller_fraction = get_random_fraction(all_smiles, smiles_bits)
-does_order_matter = get_random_fraction(comps, smiles_bits)
-
-fraction  = [i/max(fraction) for i in fraction]
-random_full_fraction = [i/max(random_full_fraction) for i in random_full_fraction]
-random_smaller_fraction = [i/max(random_smaller_fraction) for i in random_smaller_fraction]
-does_order_matter = [i/max(does_order_matter) for i in does_order_matter]
-
-
-print(len(fraction), len(random_full_fraction), len(random_smaller_fraction))
-plt.close()
-plt.figure(figsize=(8,5))
-plt.plot(range(len(DSiP_smiles)+1), fraction, label='one at a time, taking best fragment')
-plt.plot(range(len(DSiP_smiles)+1), random_full_fraction, label='random order')
-plt.plot(range(len(all_smiles)+1), random_smaller_fraction, label="random order with only compounds weve seen bind")
-# plt.plot(range(len(comps)+1), does_order_matter, label='random order with only compounds weve seen bind')
-plt.legend()
-plt.xlabel('library size')
-plt.ylabel('information recovered')
-plt.tight_layout()
-plt.savefig('figures/fraction.png')
+    fraction  = [i/max(fraction) for i in fraction]
+    random_full_fraction = [i/max(random_full_fraction) for i in random_full_fraction]
+    random_smaller_fraction = [i/max(random_smaller_fraction) for i in random_smaller_fraction]
+    does_order_matter = [i/max(does_order_matter) for i in does_order_matter]
 
 
-plt.close()
+    print(len(fraction), len(random_full_fraction), len(random_smaller_fraction))
+    plt.close()
+    plt.figure(figsize=(8,5))
+    plt.plot(range(len(DSiP_smiles)+1), fraction, label='one at a time, taking best fragment')
+    plt.plot(range(len(DSiP_smiles)+1), random_full_fraction, label='random order')
+    plt.plot(range(len(all_smiles)+1), random_smaller_fraction, label="random order with only compounds weve seen bind")
+    # plt.plot(range(len(comps)+1), does_order_matter, label='random order with only compounds weve seen bind')
+    plt.legend()
+    plt.xlabel('library size')
+    plt.ylabel('information recovered')
+    plt.tight_layout()
+    plt.savefig('figures/fraction.png')
 
-print(len([i for i in all_smiles if i not in DSiP_smiles]))
-print(len(all_smiles))
+
+    plt.close()
+
+    print(len([i for i in all_smiles if i not in DSiP_smiles]))
+    print(len(all_smiles))
