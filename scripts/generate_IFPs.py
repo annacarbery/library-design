@@ -62,6 +62,7 @@ def get_IFP_vectors(target):
 
     for ligand in os.listdir(f'{DATA_DIR}/{target}'):
 
+
         try:
             if len(xtal_smiles[ligand]) > 1:
                 xtal_smiles[ligand] = [min(xtal_smiles[ligand])]
@@ -69,10 +70,12 @@ def get_IFP_vectors(target):
 
                 separate_files(f'{DATA_DIR}/{target}/{ligand}')
 
+                print(ligand)
+
                 IFP = get_IFP()
             
                 if list(IFP).count(0) < len(IFP):
-                    ismiles.append(xtal_smiles[ligand][0])
+                    ismiles.append(Chem.MolToSmiles(Chem.MolFromSmiles(xtal_smiles[ligand][0])))
                     ifrags.append(ligand)
                     ivecs.append(IFP)
 
@@ -139,8 +142,8 @@ print('DSiP total compounds:', len(set(DSiP_smiles)))
 xtal_smiles = json.load(open('data/datafiles/xtal_smiles.json', 'r'))
 
 
-for target in os.listdir(DATA_DIR):
-# for target in ['70X']:
+# for target in os.listdir(DATA_DIR):
+for target in ['PKL1']:
 
     try:
         print(target)
