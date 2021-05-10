@@ -78,6 +78,9 @@ def get_IFP_vectors(target):
                     ismiles.append(Chem.MolToSmiles(Chem.MolFromSmiles(xtal_smiles[ligand][0])))
                     ifrags.append(ligand)
                     ivecs.append(IFP)
+                    print(ligand, [i for i in range(len(IFP)) if IFP[i] > 0])
+                else:
+                    print(ligand, 'no interactions detected')
 
         
         except:
@@ -143,7 +146,7 @@ xtal_smiles = json.load(open('data/datafiles/xtal_smiles.json', 'r'))
 
 
 # for target in os.listdir(DATA_DIR):
-for target in ['PKL1']:
+for target in ['PGN_RS02895PGA']:
 
     try:
         print(target)
@@ -158,7 +161,8 @@ for target in ['PKL1']:
 
         print('structures:', len(vecs), ', unique smiles:', len(smiles_bits))
         target_data[target] = smiles_bits
-        json.dump(target_data, open('data/datafiles/smiles_bits.json', 'w'))
+        # json.dump(target_data, open('data/datafiles/smiles_bits.json', 'w'))
+        print(smiles_bits)
     
     except:
         print(target, 'error')

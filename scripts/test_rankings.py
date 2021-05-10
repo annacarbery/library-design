@@ -8,6 +8,8 @@ from rdkit.Chem import AllChem
 from rdkit.Chem import DataStructs, SaltRemover
 from structurally_diverse_library import MACCS_diverse
 
+import numpy as np
+
 
 def get_reduced_smiles_bits(smiles_bits, test_target):
     
@@ -102,7 +104,7 @@ def plot_target_fraction(target, fraction):
     plt.ylabel('information recovered')
     plt.ylim(0,1)
     plt.tight_layout()
-    plt.savefig('figures/fraction_test.png')
+    # plt.savefig('figures/fraction_test_300.png')
 
 
 def target_improvement(target_fraction, random_fractions_target):
@@ -134,9 +136,8 @@ def mean_across_targets(fraction):
 
 smiles_bits = json.load(open('data/datafiles/smiles_bits_clean.json', 'r')) # load in dictionary of targets with IFP bits attributed to each compound
 frequent_comps = json.load(open('data/datafiles/frequently_tested_compounds.json', 'r')) # load in list of compounds that have been tested on more than 15 of our targets
-# target_tests = json.load(open('data/datafiles/target_test_numbers.json', 'r')) # load in dictionary showing how many compounds were tested on which targets
-lib_size = 175 # library size we are using to compare ranked and random libraries
-runs = 1000
+lib_size = 110 # library size we are using to compare ranked and random libraries
+runs = 10
 target_screens = json.load(open('data/datafiles/target_full_screens.json', 'r')) # load in dictionary showing which compounds were tested on which targets
 
 DSiP_smiles = get_DSiP_smiles()
@@ -145,31 +146,45 @@ print(len(set(frequent_comps)))
 plt.figure(figsize=(12, 5))
 plt.subplot(121)
 
-fractions = []
+
+ranked_fractions = []
 random_fractions = []
-diverse_fractions = []
+diverse_fractions_cross = []
+# diverse_fractions = []
 
 comps_lists = []
 improvement = []
 improvement_diverse = []
+
+bars = []
 
 for test_target in smiles_bits:
 
     # get all results except target being tested
     smiles_bits_reduced = get_reduced_smiles_bits(smiles_bits, test_target)
     all_smiles = [i for i in get_all_smiles(smiles_bits_reduced) if Chem.MolToSmiles(Chem.MolFromSmiles(i)) in frequent_comps]
-    # print('previously bound compounds', len(all_smiles))
-
-    # rank compounds based on past results
-    comps, x = rank(smiles_bits_reduced, all_smiles, lib_size)
-    comps_lists += comps
 
     # calculate total information from test target from full library
     total_information = get_total_information(smiles_bits, test_target)
 
-    # get list of fraction of information recovered at each library size (ranked library)
-    target_fraction = get_fraction(comps, smiles_bits, test_target, total_information)
-    fractions.append(target_fraction)
+    fractions = []
+    for i in range(runs):
+        random.shuffle(all_smiles)
+        # rank compounds based on past results
+        comps, x = rank(smiles_bits_reduced, all_smiles, lib_size)
+        comps_lists += comps
+
+        # get list of fraction of information recovered at each library size (ranked library)
+        target_fraction = get_fraction(comps, smiles_bits, test_target, total_information)
+        fractions.append(target_fraction)
+    
+    target_fractions = []
+    for i in range(lib_size+1):
+        fracs = [f[i] for f in fractions]
+        target_fractions.append(sum(fracs)/runs)
+
+    fractions.append(target_fractions)   
+
 
     # get compounds that were actually tested on this target
     all_smiles = [i for i in target_screens[test_target] if i in frequent_comps]
@@ -183,7 +198,7 @@ for test_target in smiles_bits:
     improvement.append(target_improvement(target_fraction, random_fractions_target))
 
     # plot information recovery as library size increases 
-    plot_target_fraction(test_target, target_fraction)
+    plot_target_fraction(test_target, target_fractions)
 
     ## !!! lots of runs for structurally diverse library!!!!
     many_diverse_fractions = []
@@ -197,45 +212,69 @@ for test_target in smiles_bits:
         diverse_fractions.append(sum(fracs)/runs)
 
 
-    print(test_target, len([i for i in smiles_bits[test_target] if Chem.MolToSmiles(Chem.MolFromSmiles(i)) in frequent_comps]), target_fraction[-1], random_fractions_target[-1], diverse_fractions[-1])
-    improvement_diverse.append(target_improvement(target_fraction, diverse_fractions))
+    print(test_target, len([i for i in smiles_bits[test_target] if Chem.MolToSmiles(Chem.MolFromSmiles(i)) in frequent_comps]), target_fractions[-1], random_fractions_target[-1], diverse_fractions[-1])
+    improvement_diverse.append(target_improvement(target_fractions, diverse_fractions))
+    diverse_fractions_cross.append(diverse_fractions)
+    bars.append([target_fractions[-1], random_fractions_target[-1], diverse_fractions[-1]])
 
 
 mean_fractions = mean_across_targets(fractions)
 mean_random_fractions = mean_across_targets(random_fractions)
+mean_diverse_fractions = mean_across_targets(diverse_fractions_cross)
 
 
 plt.subplot(122)
 plt.plot(range(len(mean_fractions)), mean_fractions, label='using ranked compounds')
 plt.plot(range(len(mean_random_fractions)), mean_random_fractions, label='picking random compounds')
+plt.plot(range(len(mean_diverse_fractions)), mean_diverse_fractions, label='picking diverse compounds')
 plt.ylim(0, 1)
 plt.legend()
 plt.xlabel('library size')
 plt.ylabel('mean information recovered across all new targets')
 plt.tight_layout()
-plt.savefig('figures/fraction_test.png')
+# plt.savefig('figures/fraction_test_300.png')
 
 
-all_smiles = get_all_smiles(smiles_bits)
-counts = [comps_lists.count(i) for i in all_smiles]
-plt.close()
-plt.figure(figsize=(8, 5))
-plt.bar(list(set(counts)), [counts.count(i) for i in set(counts)])
-plt.xlabel(f'number of times fragments in top {lib_size}')
-plt.tight_layout()
-plt.savefig('figures/compound_counts.png')
+# all_smiles = get_all_smiles(smiles_bits)
+# counts = [comps_lists.count(i) for i in all_smiles]
+# plt.close()
+# plt.figure(figsize=(8, 5))
+# plt.bar(list(set(counts)), [counts.count(i) for i in set(counts)])
+# plt.xlabel(f'number of times fragments in top {lib_size}')
+# plt.tight_layout()
+# plt.savefig('figures/compound_counts.png')
 
-import numpy as np
 plt.close()
 plt.figure(figsize=(10, 8))
 fig, ax = plt.subplots()
 pos = np.arange(len(smiles_bits))
-ax.barh(pos+0.15, improvement, height=0.25, label='vs 1000 random runs')
-ax.barh(pos-0.15, improvement_diverse, height=0.25, label='vs 1000 MACCS-diverse libraries')
+ax.barh(pos+0.15, improvement, height=0.25, label='vs random runs')
+ax.barh(pos-0.15, improvement_diverse, height=0.25, label='vs MACCS-diverse libraries')
 ax.set_yticks(pos)
 ax.set_yticklabels([t for t in smiles_bits])
-plt.xlabel(f'factor of information improvement in DSiP-diverse {lib_size}')
+plt.xlabel(f'mean factor of information improvement in DSiP-diverse {lib_size} across 1000 runs')
 plt.ylabel('target')
 plt.legend()
 plt.tight_layout()
-plt.savefig('figures/improvement_by_target.png')
+# plt.savefig('figures/improvement_by_target_300.png')
+
+bar_rank = [i[0] for i in bars]
+bar_random = [i[1] for i in bars]
+bar_diverse = [i[2] for i in bars]
+
+plt.close()
+plt.figure(figsize=(10, 8))
+fig, ax = plt.subplots()
+pos = np.arange(len(smiles_bits))
+ax.bar(pos-0.25, bar_rank, width=0.25, label='top-ranked compounds')
+ax.bar(pos, bar_random, width=0.25,label='random compounds')
+ax.bar(pos+0.25, bar_diverse, width=0.25,label='diverse compounds')
+ax.set_xticks(pos)
+ax.set_xticklabels([t for t in smiles_bits])
+plt.xticks(rotation=90)
+plt.ylabel(f'information recovered with library sizes of {lib_size}')
+plt.xlabel('target')
+plt.legend()
+plt.tight_layout()
+plt.savefig('figures/results_bar.png')
+
