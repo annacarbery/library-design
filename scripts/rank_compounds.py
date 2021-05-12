@@ -7,6 +7,25 @@ from rdkit.Chem import AllChem
 from rdkit.Chem import DataStructs, SaltRemover
 import os
 
+def ignore_targets(smiles_bits, frequent_comps, target_screens, remove_less_than):
+
+    # returns a dictionary of IFP bits for each compound in each target that have more than a threshold amount of frequent compounds tested
+
+    smol = []
+    for t in smiles_bits:
+        if t in target_screens and len([i for i in target_screens[t] if i in frequent_comps]) < remove_less_than:
+            smol.append(t)
+        elif t not in target_screens:
+            smol.append(t)
+        elif len(smiles_bits[t]) < 10:
+            smol.append(t)
+
+    for t in smol:
+        del smiles_bits[t]
+
+
+    return smiles_bits
+
 def get_DSiP_smiles():
 
     # using the sdf files provided by Enamine, the molecules are cleaned of salts and converted into SMILES strings
@@ -122,32 +141,63 @@ def rank(smiles_bits, all_smiles, length):
     return comps, fraction
 
 
+
+def mean_across_runs(list_of_runs):
+
+    # calculates mean and standard deviations of runs for a particular method
+
+    mean_of_runs = []
+    std_of_runs = []
+    for i in range(len(list_of_runs[0])):
+        fracs = [f[i] for f in list_of_runs]
+        mean_of_runs.append(sum(fracs)/len(list_of_runs))
+        std_of_runs.append(np.std(fracs))
+    
+    return mean_of_runs, std_of_runs
+
+
 if __name__ == '__main__':
-    smiles_bits = json.load(open('data/datafiles/smiles_bits.json', 'r'))
+    # smiles_bits = json.load(open('data/datafiles/smiles_bits.json', 'r'))
+    smiles_bits = json.load(open('data/datafiles/smiles_bits_clean.json', 'r')) # load in dictionary of targets with IFP bits attributed to each compound
+    frequent_comps = json.load(open('data/datafiles/frequently_tested_compounds.json', 'r')) # load in list of compounds that have been tested on more than 15 of our targets
+    target_screens = json.load(open('data/datafiles/target_full_screens.json', 'r')) # load in dictionary showing which compounds were tested on which targets
+
+
+    lib_size = 300 # library size we are using to compare ranked and random libraries
+    coverage = 500
+
+    DSiP_smiles = get_DSiP_smiles()
+    smiles_bits = ignore_targets(smiles_bits, frequent_comps, target_screens, coverage) # only take targets that have had more than 250 of our frequent compounds tested
     all_smiles = get_all_smiles(smiles_bits)
-    DSiP_smiles = all_smiles + ['C'] * 450
-    random.shuffle(DSiP_smiles)
+    # DSiP_smiles = all_smiles + ['C'] * 450
+    # random.shuffle(DSiP_smiles)
 
     comps, fraction = rank(smiles_bits, all_smiles, len(DSiP_smiles))
 
-    json.dump(comps, open('data/outputs/ranked_compounds.json', 'w'))
+    # json.dump(comps, open('data/outputs/ranked_compounds.json', 'w'))
 
-    random_full_fraction = get_random_fraction(DSiP_smiles, smiles_bits)
-    random_smaller_fraction = get_random_fraction(all_smiles, smiles_bits)
-    does_order_matter = get_random_fraction(comps, smiles_bits)
+    # random_full_fraction = get_random_fraction(DSiP_smiles, smiles_bits)
+
+    random_smaller_fraction = []
+    for i in range(1000):
+        print(i)
+        random_smaller_fraction.append(get_random_fraction(all_smiles, smiles_bits))
+
+    random_smaller_fraction, std = mean_across_runs(random_smaller_fraction)
+    # does_order_matter = get_random_fraction(comps, smiles_bits)
 
     fraction  = [i/max(fraction) for i in fraction]
-    random_full_fraction = [i/max(random_full_fraction) for i in random_full_fraction]
+    # random_full_fraction = [i/max(random_full_fraction) for i in random_full_fraction]
     random_smaller_fraction = [i/max(random_smaller_fraction) for i in random_smaller_fraction]
-    does_order_matter = [i/max(does_order_matter) for i in does_order_matter]
+    # does_order_matter = [i/max(does_order_matter) for i in does_order_matter]
 
 
-    print(len(fraction), len(random_full_fraction), len(random_smaller_fraction))
+    # print(len(fraction), len(random_full_fraction), len(random_smaller_fraction))
     plt.close()
     plt.figure(figsize=(8,5))
-    plt.plot(range(len(DSiP_smiles)+1), fraction, label='one at a time, taking best fragment')
-    plt.plot(range(len(DSiP_smiles)+1), random_full_fraction, label='random order')
-    plt.plot(range(len(all_smiles)+1), random_smaller_fraction, label="random order with only compounds weve seen bind")
+    plt.plot(range(364), fraction[:364], label='one at a time, taking best fragment')
+    # plt.plot(range(len(DSiP_smiles)+1), random_full_fraction, label='random order')
+    plt.plot(range(364), random_smaller_fraction, label="random order with only compounds weve seen bind")
     # plt.plot(range(len(comps)+1), does_order_matter, label='random order with only compounds weve seen bind')
     plt.legend()
     plt.xlabel('library size')
