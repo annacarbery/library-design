@@ -85,7 +85,7 @@ def get_IFP_vectors(target):
                     print(ligand, 'no interactions detected')
 
         
-        except IndexError:
+        except:
             pass
     
     return ismiles, ifrags, ivecs
@@ -140,7 +140,7 @@ def get_smiles_bits(vecs, smiles):
 
 DATA_DIR = '/dls/science/users/tyt15771/DPhil/Lib_activity/data'
 
-target_data = {}
+target_data = json.load(open('data/datafiles/smiles_bits_atomic.json', 'r'))
 DSiP_smiles = get_DSiP_smiles()
 print('DSiP total compounds:', len(set(DSiP_smiles)))
 
@@ -150,22 +150,24 @@ xtal_smiles = json.load(open('data/datafiles/xtal_smiles.json', 'r'))
 # for target in os.listdir(DATA_DIR):
 for target in ['Mpro', 'BKVP126', 'ReqQ1_DNA', 'TBXTA', 'EPB41L3A', 'mArh', 'nsp13', 'PHIPA', 'CD73', 'CYCK', 'INPP5DA', 'NUDT5A']:
 
-    try:
-        print(target)
+    if target not in target_data:
 
-        ifrags, ivecs, ismiles = get_IFP_vectors(target)
-        vecs, frags, smiles, wrong = get_uniform_IFPs(ifrags, ivecs, ismiles)
+        try:
+            print(target)
 
-        print('IFPs:', len(vecs))
-        print('vectors of wrong length:', wrong)
+            ifrags, ivecs, ismiles = get_IFP_vectors(target)
+            vecs, frags, smiles, wrong = get_uniform_IFPs(ifrags, ivecs, ismiles)
 
-        smiles_bits = get_smiles_bits(vecs, smiles)
+            print('IFPs:', len(vecs))
+            print('vectors of wrong length:', wrong)
 
-        print('structures:', len(vecs), ', unique smiles:', len(smiles_bits))
-        target_data[target] = smiles_bits
-        json.dump(target_data, open('data/datafiles/smiles_bits_atomic.json', 'w'))
-        print(smiles_bits)
-    
-    except:
-        print(target, 'error')
-        print(sys.exc_info()[1])
+            smiles_bits = get_smiles_bits(vecs, smiles)
+
+            print('structures:', len(vecs), ', unique smiles:', len(smiles_bits))
+            target_data[target] = smiles_bits
+            json.dump(target_data, open('data/datafiles/smiles_bits_atomic.json', 'w'))
+            print(smiles_bits)
+        
+        except:
+            print(target, 'error')
+            print(sys.exc_info()[1])

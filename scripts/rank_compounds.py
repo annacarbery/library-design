@@ -158,12 +158,12 @@ def mean_across_runs(list_of_runs):
 
 if __name__ == '__main__':
     # smiles_bits = json.load(open('data/datafiles/smiles_bits.json', 'r'))
-    smiles_bits = json.load(open('data/datafiles/smiles_bits_clean.json', 'r')) # load in dictionary of targets with IFP bits attributed to each compound
+    smiles_bits = json.load(open('data/datafiles/smiles_bits_atomic.json', 'r')) # load in dictionary of targets with IFP bits attributed to each compound
     frequent_comps = json.load(open('data/datafiles/frequently_tested_compounds.json', 'r')) # load in list of compounds that have been tested on more than 15 of our targets
     target_screens = json.load(open('data/datafiles/target_full_screens.json', 'r')) # load in dictionary showing which compounds were tested on which targets
 
-
-    lib_size = 300 # library size we are using to compare ranked and random libraries
+    print(len(smiles_bits))
+    lib_size = 200 # library size we are using to compare ranked and random libraries
     coverage = 500
 
     DSiP_smiles = get_DSiP_smiles()
@@ -195,15 +195,15 @@ if __name__ == '__main__':
     # print(len(fraction), len(random_full_fraction), len(random_smaller_fraction))
     plt.close()
     plt.figure(figsize=(8,5))
-    plt.plot(range(364), fraction[:364], label='one at a time, taking best fragment')
+    plt.plot(range(312), fraction[:312], label='one at a time, taking best fragment')
     # plt.plot(range(len(DSiP_smiles)+1), random_full_fraction, label='random order')
-    plt.plot(range(364), random_smaller_fraction, label="random order with only compounds weve seen bind")
+    plt.plot(range(312), random_smaller_fraction, label="random order with only compounds weve seen bind")
     # plt.plot(range(len(comps)+1), does_order_matter, label='random order with only compounds weve seen bind')
     plt.legend()
     plt.xlabel('library size')
     plt.ylabel('information recovered')
     plt.tight_layout()
-    plt.savefig('figures/fraction.png')
+    plt.savefig('figures/fraction_atomic.png')
 
 
     plt.close()

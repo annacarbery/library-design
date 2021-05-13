@@ -13,7 +13,7 @@ def plot_target_fraction(target, fraction):
     plt.ylabel('information recovered')
     plt.ylim(0,1)
     plt.tight_layout()
-    plt.savefig('figures/fraction_test_12-05.png')
+    plt.savefig('figures/fraction_test_atomic.png')
 
 
 def mean_across_targets(fraction):
@@ -83,21 +83,21 @@ def plot_fractions(ranked_fractions, ranked_stds, random_fractions, random_stds,
     plt.xlabel('library size')
     plt.ylabel('mean information recovered across all new targets')
     plt.tight_layout()
-    plt.savefig('figures/fraction_test_12-05.png')
+    plt.savefig('figures/fraction_test_atomic.png')
 
 
-ranked_fractions = json.load(open('data/outputs/ranked_fractions_12-05.json', 'r'))
-ranked_stds = json.load(open('data/outputs/ranked_stds_12-05.json', 'r'))
+ranked_fractions = json.load(open('data/outputs/ranked_fractions_atomic.json', 'r'))
+ranked_stds = json.load(open('data/outputs/ranked_stds_atomic.json', 'r'))
 
-random_fractions = json.load(open('data/outputs/random_fractions_12-05.json', 'r'))
-random_stds = json.load(open('data/outputs/random_stds_12-05.json', 'r'))
+random_fractions = json.load(open('data/outputs/random_fractions_atomic.json', 'r'))
+random_stds = json.load(open('data/outputs/random_stds_atomic.json', 'r'))
 
-diverse_fractions = json.load(open('data/outputs/diverse_fractions_12-05.json', 'r'))
-diverse_stds = json.load(open('data/outputs/diverse_stds_12-05.json', 'r'))
+diverse_fractions = json.load(open('data/outputs/diverse_fractions_atomic.json', 'r'))
+diverse_stds = json.load(open('data/outputs/diverse_stds_atomic.json', 'r'))
 
 frequent_comps = json.load(open('data/datafiles/frequently_tested_compounds.json', 'r'))
 target_screens = json.load(open('data/datafiles/target_full_screens.json', 'r'))
-smiles_bits = json.load(open('data/datafiles/smiles_bits_clean.json', 'r'))
+smiles_bits = json.load(open('data/datafiles/smiles_bits_atomic.json', 'r'))
 smiles_bits = ignore_targets(smiles_bits, frequent_comps, target_screens, 500)
 
 
@@ -129,7 +129,7 @@ fontP = FontProperties()
 fontP.set_size('x-small')
 plt.legend(prop=fontP)
 plt.tight_layout()
-plt.savefig('figures/results_bar_12-05.png')
+plt.savefig('figures/results_bar_atomic.png')
 
 improvement_random = target_improvement(ranked_fractions, random_fractions, lib_size)
 improvement_diverse = target_improvement(ranked_fractions, diverse_fractions, lib_size)
@@ -142,8 +142,8 @@ ax.barh(pos+0.15, improvement_random, height=0.25, label='vs random runs', color
 ax.barh(pos-0.15, improvement_diverse, height=0.25, label='vs MACCS-diverse libraries', color='#2ca02c', alpha=0.7)
 ax.set_yticks(pos)
 ax.set_yticklabels([t for t in smiles_bits])
-plt.xlabel(f'mean factor of information improvement in DSiP-diverse {lib_size} across 1000 runs')
+plt.xlabel(f'mean factor of information improvement in DSiP-diverse {lib_size}')
 plt.ylabel('target')
 plt.legend(prop=fontP)
 plt.tight_layout()
-plt.savefig('figures/improvement_by_target_12-05.png')
+plt.savefig('figures/improvement_by_target_atomic.png')

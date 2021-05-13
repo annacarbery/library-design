@@ -138,7 +138,7 @@ def mean_across_runs(list_of_runs):
 
 if __name__ == '__main__':
 
-    smiles_bits = json.load(open('data/datafiles/smiles_bits_clean.json', 'r')) # load in dictionary of targets with IFP bits attributed to each compound
+    smiles_bits = json.load(open('data/datafiles/smiles_bits_atomic.json', 'r')) # load in dictionary of targets with IFP bits attributed to each compound
     frequent_comps = json.load(open('data/datafiles/frequently_tested_compounds.json', 'r')) # load in list of compounds that have been tested on more than 15 of our targets
     target_screens = json.load(open('data/datafiles/target_full_screens.json', 'r')) # load in dictionary showing which compounds were tested on which targets
 
@@ -193,10 +193,10 @@ if __name__ == '__main__':
         print(diverse_runs[-1], diverse_std[-1])
 
 
-    json.dump(ranked_fractions, open('data/outputs/ranked_fractions_12-05.json', 'w'))
-    json.dump(random_fractions, open('data/outputs/random_fractions_12-05.json', 'w'))
-    json.dump(diverse_fractions, open('data/outputs/diverse_fractions_12-05.json', 'w'))
+    json.dump(ranked_fractions, open('data/outputs/ranked_fractions_atomic.json', 'w'))
+    json.dump(random_fractions, open('data/outputs/random_fractions_atomic.json', 'w'))
+    json.dump(diverse_fractions, open('data/outputs/diverse_fractions_atomic.json', 'w'))
 
-    json.dump(ranked_stds, open('data/outputs/ranked_stds_12-05.json', 'w'))
-    json.dump(random_stds, open('data/outputs/random_stds_12-05.json', 'w'))
-    json.dump(diverse_stds, open('data/outputs/diverse_stds_12-05.json', 'w'))
+    json.dump(ranked_stds, open('data/outputs/ranked_stds_atomic.json', 'w'))
+    json.dump(random_stds, open('data/outputs/random_stds_atomic.json', 'w'))
+    json.dump(diverse_stds, open('data/outputs/diverse_stds_atomic.json', 'w'))
